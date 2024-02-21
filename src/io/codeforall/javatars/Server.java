@@ -25,6 +25,7 @@ public class Server {
 
         InetAddress[] clients = new InetAddress[20];
         int[] clientsPorts = new int[20];
+        int currentClients = 0;
 
         while(true) {
 
@@ -52,30 +53,47 @@ public class Server {
             String text = new String(receivePacket.getData());
             String newText = receivePacket.getAddress().getHostAddress() + ": " + text;
 
-            for(int i = 0; i < 20; i++){
-                if(clients[i] == null){
-                    clients[i] = receivePacket.getAddress();
-                    clientsPorts[i] = receivePacket.getPort();
-                }
+            boolean doesClientExistAlready = false;
+            System.out.println("receiving packet address: " + receivePacket.getAddress());
+            if(currentClients == 0){
+                System.out.println("New client[" + currentClients + "]: " + receivePacket.getAddress());
+                clients[currentClients] = receivePacket.getAddress();
+                clientsPorts[currentClients] = receivePacket.getPort();
+                currentClients++;
             }
-
+            for(int i = 0; i < currentClients; i++){
+                if(clients[i].getHostAddress().equals(receivePacket.getAddress().getHostAddress())){
+                    break;
+                }
+                System.out.println("New client[" + currentClients + "]: " + receivePacket.getAddress());
+                clients[currentClients] = receivePacket.getAddress();
+                clientsPorts[currentClients] = receivePacket.getPort();
+                currentClients++;
+            }
+            socket.close();
 
             //Send
             sendBuffer = newText.getBytes();
             DatagramPacket sendPacket = null;
-            for (int i = 0; i < 20; i++){
-                if(clients[i] != null){
-                    sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, clients[i], clientsPorts[i]);
+            for (int i = 0; i < currentClients; i++){
+                try {
+                    if(!clients[i].getHostAddress().equals(InetAddress.getLocalHost().getHostAddress())){
+                        socket = null;
+                        try {
+                            socket = new DatagramSocket(portNumber, serverIP);
+                        } catch (SocketException e) {
+                            throw new RuntimeException(e);
+                        }
+                        System.out.println(clients[i]);
+                        System.out.println(clientsPorts[i]);
+                        sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, clients[i], clientsPorts[i]);
+                        socket.send(sendPacket);
+                        socket.close();
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
-
-            try {
-                socket.send(sendPacket);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-            socket.close();
         }
 
     }
